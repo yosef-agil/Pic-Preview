@@ -1,0 +1,893 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Photo Preview System - Self Photo Studio</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1600px;
+            margin: 0 auto;
+        }
+
+        /* Header Section */
+        header {
+            background: rgba(255, 255, 255, 0.98);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 25px 30px;
+            margin-bottom: 25px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            animation: slideDown 0.6s ease;
+        }
+
+        @keyframes slideDown {
+            from {
+                opacity: 0;
+                transform: translateY(-30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .header-content {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 20px;
+        }
+
+        .title-section {
+            flex: 1;
+        }
+
+        h1 {
+            color: #333;
+            font-size: 2.2em;
+            margin-bottom: 8px;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .session-info {
+            color: #666;
+            font-size: 1em;
+        }
+
+        .session-info span {
+            color: #764ba2;
+            font-weight: 600;
+        }
+
+        /* Stats Section */
+        .stats-section {
+            display: flex;
+            gap: 30px;
+            align-items: center;
+        }
+
+        .stat-card {
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            padding: 15px 25px;
+            border-radius: 15px;
+            text-align: center;
+            min-width: 120px;
+            transition: transform 0.3s ease;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-3px);
+        }
+
+        .stat-number {
+            font-size: 2em;
+            font-weight: bold;
+            color: #667eea;
+            display: block;
+        }
+
+        .stat-label {
+            color: #666;
+            font-size: 0.9em;
+            margin-top: 5px;
+        }
+
+        /* Action Bar */
+        .action-bar {
+            background: rgba(255, 255, 255, 0.98);
+            border-radius: 15px;
+            padding: 20px 30px;
+            margin-bottom: 25px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+        }
+
+        .filter-buttons {
+            display: flex;
+            gap: 10px;
+        }
+
+        .filter-btn {
+            background: #f0f0f0;
+            border: 2px solid transparent;
+            padding: 10px 20px;
+            border-radius: 25px;
+            font-size: 1em;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            color: #666;
+        }
+
+        .filter-btn:hover {
+            background: #e0e0e0;
+        }
+
+        .filter-btn.active {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-color: #667eea;
+        }
+
+        .action-buttons {
+            display: flex;
+            gap: 15px;
+        }
+
+        .btn {
+            padding: 12px 30px;
+            border-radius: 25px;
+            font-size: 1em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border: none;
+        }
+
+        .btn-secondary {
+            background: #f0f0f0;
+            color: #666;
+        }
+
+        .btn-secondary:hover {
+            background: #e0e0e0;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            box-shadow: 0 10px 25px rgba(102, 126, 234, 0.3);
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 15px 35px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-primary:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .btn-success {
+            background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+            color: white;
+            box-shadow: 0 10px 25px rgba(56, 239, 125, 0.3);
+        }
+
+        .btn-success:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 15px 35px rgba(56, 239, 125, 0.4);
+        }
+
+        /* Gallery Grid */
+        .gallery {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            gap: 20px;
+            padding: 20px 0;
+        }
+
+        .photo-card {
+            background: white;
+            border-radius: 12px;
+            overflow: hidden;
+            position: relative;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            animation: fadeInUp 0.6s ease forwards;
+            opacity: 0;
+        }
+
+        .photo-card:nth-child(n) {
+            animation-delay: calc(0.05s * var(--index));
+        }
+
+        @keyframes fadeInUp {
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+        }
+
+        .photo-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 20px 40px rgba(0,0,0,0.15);
+        }
+
+        .photo-card.selected {
+            box-shadow: 0 0 0 4px #667eea;
+            transform: scale(0.98);
+        }
+
+        .photo-card.selected::after {
+            content: '✓';
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: #667eea;
+            color: white;
+            width: 35px;
+            height: 35px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.3em;
+            font-weight: bold;
+            animation: checkIn 0.3s ease;
+        }
+
+        @keyframes checkIn {
+            from {
+                transform: scale(0);
+            }
+            to {
+                transform: scale(1);
+            }
+        }
+
+        .photo-wrapper {
+            position: relative;
+            padding-bottom: 100%;
+            background: #f5f5f5;
+            overflow: hidden;
+        }
+
+        .photo-wrapper img {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transition: transform 0.3s ease;
+        }
+
+        .photo-card:hover .photo-wrapper img {
+            transform: scale(1.08);
+        }
+
+        .photo-number {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: rgba(0,0,0,0.7);
+            color: white;
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-size: 0.85em;
+            font-weight: 600;
+            backdrop-filter: blur(5px);
+        }
+
+        /* Upload Section (for staff) */
+        .upload-section {
+            background: rgba(255, 255, 255, 0.98);
+            border-radius: 15px;
+            padding: 30px;
+            margin-bottom: 25px;
+            text-align: center;
+            border: 3px dashed #667eea;
+            display: none;
+        }
+
+        .upload-section.active {
+            display: block;
+            animation: slideDown 0.5s ease;
+        }
+
+        .upload-icon {
+            font-size: 3em;
+            color: #667eea;
+            margin-bottom: 15px;
+        }
+
+        .upload-text {
+            color: #666;
+            font-size: 1.1em;
+            margin-bottom: 20px;
+        }
+
+        /* Cart Preview */
+        .cart-preview {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            background: white;
+            border-radius: 20px;
+            padding: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+            min-width: 300px;
+            max-width: 400px;
+            transform: translateY(150%);
+            transition: transform 0.4s ease;
+            z-index: 1000;
+        }
+
+        .cart-preview.show {
+            transform: translateY(0);
+        }
+
+        .cart-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #f0f0f0;
+        }
+
+        .cart-title {
+            font-size: 1.2em;
+            font-weight: bold;
+            color: #333;
+        }
+
+        .cart-count {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+            padding: 5px 12px;
+            border-radius: 15px;
+            font-weight: bold;
+        }
+
+        .cart-items {
+            max-height: 300px;
+            overflow-y: auto;
+            margin-bottom: 15px;
+        }
+
+        .cart-item {
+            display: flex;
+            align-items: center;
+            padding: 10px;
+            border-radius: 10px;
+            margin-bottom: 10px;
+            background: #f8f9fa;
+            transition: background 0.3s ease;
+        }
+
+        .cart-item:hover {
+            background: #e9ecef;
+        }
+
+        .cart-item img {
+            width: 50px;
+            height: 50px;
+            object-fit: cover;
+            border-radius: 8px;
+            margin-right: 15px;
+        }
+
+        .cart-item-info {
+            flex: 1;
+        }
+
+        .cart-item-name {
+            font-weight: 600;
+            color: #333;
+        }
+
+        .remove-btn {
+            background: #ff4757;
+            color: white;
+            border: none;
+            padding: 5px 10px;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background 0.3s ease;
+        }
+
+        .remove-btn:hover {
+            background: #ff3838;
+        }
+
+        /* Loading Spinner */
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 40px;
+        }
+
+        .loading.active {
+            display: block;
+        }
+
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .gallery {
+                grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+                gap: 15px;
+            }
+
+            .stats-section {
+                flex-direction: column;
+                gap: 15px;
+                width: 100%;
+            }
+
+            .stat-card {
+                width: 100%;
+            }
+
+            .cart-preview {
+                width: 90%;
+                right: 5%;
+                left: 5%;
+            }
+        }
+
+        /* Toast Notification */
+        .toast {
+            position: fixed;
+            top: 30px;
+            right: 30px;
+            background: white;
+            padding: 15px 25px;
+            border-radius: 10px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            transform: translateX(400px);
+            transition: transform 0.3s ease;
+            z-index: 2000;
+        }
+
+        .toast.show {
+            transform: translateX(0);
+        }
+
+        .toast.success {
+            border-left: 4px solid #38ef7d;
+        }
+
+        .toast.error {
+            border-left: 4px solid #ff4757;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header>
+            <div class="header-content">
+                <div class="title-section">
+                    <h1>📸 Preview Foto Anda</h1>
+                    <div class="session-info">
+                        Sesi: <span id="sessionId">SF-2024-001</span> | 
+                        Tanggal: <span id="sessionDate">7 Agustus 2025</span>
+                    </div>
+                </div>
+                <div class="stats-section">
+                    <div class="stat-card">
+                        <span class="stat-number" id="totalPhotos">24</span>
+                        <span class="stat-label">Total Foto</span>
+                    </div>
+                    <div class="stat-card">
+                        <span class="stat-number" id="selectedPhotos">0</span>
+                        <span class="stat-label">Dipilih</span>
+                    </div>
+                    <div class="stat-card">
+                        <span class="stat-number" id="remainingQuota">10</span>
+                        <span class="stat-label">Sisa Kuota</span>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Action Bar -->
+        <div class="action-bar">
+            <div class="filter-buttons">
+                <button class="filter-btn active" onclick="filterPhotos('all')">Semua Foto</button>
+                <button class="filter-btn" onclick="filterPhotos('selected')">Foto Dipilih</button>
+                <button class="filter-btn" onclick="filterPhotos('unselected')">Belum Dipilih</button>
+            </div>
+            <div class="action-buttons">
+                <button class="btn btn-secondary" onclick="clearSelection()">
+                    Reset Pilihan
+                </button>
+                <button class="btn btn-primary" onclick="toggleCart()">
+                    🛒 Lihat Keranjang
+                </button>
+                <button class="btn btn-success" onclick="proceedToPrint()" id="printBtn" disabled>
+                    🖨️ Lanjut Cetak
+                </button>
+            </div>
+        </div>
+
+        <!-- Upload Section (Hidden by default, for staff view) -->
+        <div class="upload-section" id="uploadSection">
+            <div class="upload-icon">📁</div>
+            <div class="upload-text">Drag & drop memory card folder atau klik untuk browse</div>
+            <input type="file" id="fileInput" multiple accept="image/*" style="display: none;">
+            <button class="btn btn-primary" onclick="document.getElementById('fileInput').click()">
+                Pilih Foto dari Memory Card
+            </button>
+        </div>
+
+        <!-- Loading -->
+        <div class="loading" id="loading">
+            <div class="spinner"></div>
+            <p style="margin-top: 20px; color: white;">Memuat foto...</p>
+        </div>
+
+        <!-- Photo Gallery -->
+        <div class="gallery" id="gallery">
+            <!-- Photos will be dynamically loaded here -->
+        </div>
+
+        <!-- Cart Preview (Floating) -->
+        <div class="cart-preview" id="cartPreview">
+            <div class="cart-header">
+                <span class="cart-title">Keranjang Cetak</span>
+                <span class="cart-count" id="cartCount">0 Foto</span>
+            </div>
+            <div class="cart-items" id="cartItems">
+                <!-- Selected photos will appear here -->
+            </div>
+            <button class="btn btn-success" style="width: 100%;" onclick="proceedToPrint()">
+                Konfirmasi & Cetak
+            </button>
+        </div>
+
+        <!-- Toast Notification -->
+        <div class="toast" id="toast"></div>
+    </div>
+
+    <script>
+        // State Management
+        let photos = [];
+        let selectedPhotos = new Set();
+        let maxSelection = 10; // Maximum photos that can be selected
+        let currentFilter = 'all';
+
+        // Initialize on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            // Check if this is staff view (could be determined by URL parameter)
+            const urlParams = new URLSearchParams(window.location.search);
+            const isStaff = urlParams.get('staff') === 'true';
+            
+            if (isStaff) {
+                document.getElementById('uploadSection').classList.add('active');
+                setupFileUpload();
+            } else {
+                // Load sample photos for customer view
+                loadSamplePhotos();
+            }
+
+            // Set current date
+            const today = new Date();
+            document.getElementById('sessionDate').textContent = today.toLocaleDateString('id-ID', {
+                day: 'numeric',
+                month: 'long',
+                year: 'numeric'
+            });
+        });
+
+        // Load sample photos (for demo)
+        function loadSamplePhotos() {
+            const loading = document.getElementById('loading');
+            loading.classList.add('active');
+
+            // Simulate loading delay
+            setTimeout(() => {
+                // Generate sample photo data
+                for (let i = 1; i <= 24; i++) {
+                    photos.push({
+                        id: `photo_${i}`,
+                        url: `https://picsum.photos/400/400?random=${i}`,
+                        thumbnail: `https://picsum.photos/200/200?random=${i}`,
+                        name: `IMG_${String(i).padStart(4, '0')}.jpg`,
+                        selected: false
+                    });
+                }
+
+                renderGallery();
+                updateStats();
+                loading.classList.remove('active');
+            }, 1500);
+        }
+
+        // Render photo gallery
+        function renderGallery() {
+            const gallery = document.getElementById('gallery');
+            gallery.innerHTML = '';
+
+            let photosToShow = photos;
+            
+            if (currentFilter === 'selected') {
+                photosToShow = photos.filter(p => selectedPhotos.has(p.id));
+            } else if (currentFilter === 'unselected') {
+                photosToShow = photos.filter(p => !selectedPhotos.has(p.id));
+            }
+
+            photosToShow.forEach((photo, index) => {
+                const card = document.createElement('div');
+                card.className = `photo-card ${selectedPhotos.has(photo.id) ? 'selected' : ''}`;
+                card.style.setProperty('--index', index);
+                card.onclick = () => togglePhotoSelection(photo.id);
+
+                card.innerHTML = `
+                    <div class="photo-wrapper">
+                        <img src="${photo.url}" alt="${photo.name}" loading="lazy">
+                        <div class="photo-number">${photo.name}</div>
+                    </div>
+                `;
+
+                gallery.appendChild(card);
+            });
+        }
+
+        // Toggle photo selection
+        function togglePhotoSelection(photoId) {
+            if (selectedPhotos.has(photoId)) {
+                selectedPhotos.delete(photoId);
+                showToast('Foto dihapus dari pilihan', 'success');
+            } else {
+                if (selectedPhotos.size >= maxSelection) {
+                    showToast(`Maksimal ${maxSelection} foto dapat dipilih`, 'error');
+                    return;
+                }
+                selectedPhotos.add(photoId);
+                showToast('Foto ditambahkan ke pilihan', 'success');
+            }
+
+            renderGallery();
+            updateStats();
+            updateCart();
+        }
+
+        // Update statistics
+        function updateStats() {
+            document.getElementById('totalPhotos').textContent = photos.length;
+            document.getElementById('selectedPhotos').textContent = selectedPhotos.size;
+            document.getElementById('remainingQuota').textContent = maxSelection - selectedPhotos.size;
+            document.getElementById('cartCount').textContent = `${selectedPhotos.size} Foto`;
+            
+            // Enable/disable print button
+            const printBtn = document.getElementById('printBtn');
+            printBtn.disabled = selectedPhotos.size === 0;
+        }
+
+        // Update cart preview
+        function updateCart() {
+            const cartItems = document.getElementById('cartItems');
+            cartItems.innerHTML = '';
+
+            if (selectedPhotos.size === 0) {
+                cartItems.innerHTML = '<p style="text-align: center; color: #999;">Belum ada foto dipilih</p>';
+                return;
+            }
+
+            photos.forEach(photo => {
+                if (selectedPhotos.has(photo.id)) {
+                    const item = document.createElement('div');
+                    item.className = 'cart-item';
+                    item.innerHTML = `
+                        <img src="${photo.thumbnail}" alt="${photo.name}">
+                        <div class="cart-item-info">
+                            <div class="cart-item-name">${photo.name}</div>
+                        </div>
+                        <button class="remove-btn" onclick="removeFromCart('${photo.id}')">×</button>
+                    `;
+                    cartItems.appendChild(item);
+                }
+            });
+        }
+
+        // Remove from cart
+        function removeFromCart(photoId) {
+            event.stopPropagation();
+            selectedPhotos.delete(photoId);
+            renderGallery();
+            updateStats();
+            updateCart();
+            showToast('Foto dihapus dari keranjang', 'success');
+        }
+
+        // Clear all selections
+        function clearSelection() {
+            if (selectedPhotos.size === 0) {
+                showToast('Tidak ada foto yang dipilih', 'error');
+                return;
+            }
+            
+            if (confirm('Hapus semua pilihan foto?')) {
+                selectedPhotos.clear();
+                renderGallery();
+                updateStats();
+                updateCart();
+                showToast('Semua pilihan telah direset', 'success');
+            }
+        }
+
+        // Filter photos
+        function filterPhotos(filter) {
+            currentFilter = filter;
+            
+            // Update filter button states
+            document.querySelectorAll('.filter-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            event.target.classList.add('active');
+            
+            renderGallery();
+        }
+
+        // Toggle cart preview
+        function toggleCart() {
+            const cart = document.getElementById('cartPreview');
+            cart.classList.toggle('show');
+        }
+
+        // Proceed to print
+        function proceedToPrint() {
+            if (selectedPhotos.size === 0) {
+                showToast('Pilih minimal 1 foto untuk dicetak', 'error');
+                return;
+            }
+
+            const selectedPhotosList = Array.from(selectedPhotos).map(id => {
+                return photos.find(p => p.id === id).name;
+            }).join(', ');
+
+            if (confirm(`Cetak ${selectedPhotos.size} foto?\n\nFoto yang dipilih:\n${selectedPhotosList}`)) {
+                showToast('Memproses pencetakan...', 'success');
+                
+                // Here you would send the selected photos to the printer
+                // For demo, we'll just show a success message after delay
+                setTimeout(() => {
+                    showToast('Foto sedang dicetak! Silakan tunggu.', 'success');
+                    
+                    // Reset after printing
+                    setTimeout(() => {
+                        selectedPhotos.clear();
+                        renderGallery();
+                        updateStats();
+                        updateCart();
+                    }, 2000);
+                }, 1500);
+            }
+        }
+
+        // Show toast notification
+        function showToast(message, type = 'success') {
+            const toast = document.getElementById('toast');
+            toast.textContent = message;
+            toast.className = `toast ${type} show`;
+            
+            setTimeout(() => {
+                toast.classList.remove('show');
+            }, 3000);
+        }
+
+        // Setup file upload (for staff)
+        function setupFileUpload() {
+            const fileInput = document.getElementById('fileInput');
+            const uploadSection = document.getElementById('uploadSection');
+            
+            // Handle file selection
+            fileInput.addEventListener('change', handleFileSelect);
+            
+            // Handle drag and drop
+            uploadSection.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                uploadSection.style.background = 'rgba(102, 126, 234, 0.1)';
+            });
+            
+            uploadSection.addEventListener('dragleave', (e) => {
+                e.preventDefault();
+                uploadSection.style.background = 'rgba(255, 255, 255, 0.98)';
+            });
+            
+            uploadSection.addEventListener('drop', (e) => {
+                e.preventDefault();
+                uploadSection.style.background = 'rgba(255, 255, 255, 0.98)';
+                
+                const files = e.dataTransfer.files;
+                handleFiles(files);
+            });
+        }
+
+        // Handle file selection
+        function handleFileSelect(e) {
+            const files = e.target.files;
+            handleFiles(files);
+        }
+
+        // Handle files
+        function handleFiles(files) {
+            const loading = document.getElementById('loading');
+            loading.classList.add('active');
+            
+            photos = [];
+            selectedPhotos.clear();
+            
+            Array.from(files).forEach((file, index) => {
+                if (file.type.startsWith('image/')) {
+                    const reader = new FileReader();
+                    
+                    reader.onload = (e) => {
+                        photos.push({
+                            id: `photo_${index + 1}`,
+                            url: e.target.result,
+                            thumbnail: e.target.result,
+                            name: file.name,
+                            selected: false
+                        });
+                        
+                        if (photos.length === files.length) {
+                            renderGallery();
+                            updateStats();
+                            loading.classList.remove('active');
+                            document.getElementById('uploadSection').style.display = 'none';
+                            showToast(`${photos.length} foto berhasil diupload`, 'success');
+                        }
+                    };
+                    
+                    reader.readAsDataURL(file);
+                }
+            });
+        }
+    </script>
+</body>
+</html>
