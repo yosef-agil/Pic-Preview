@@ -242,7 +242,6 @@
 
         .photo-card.selected {
             box-shadow: 0 0 0 4px #667eea;
-            transform: scale(0.98);
         }
 
         .photo-card.selected::after {
@@ -260,16 +259,6 @@
             justify-content: center;
             font-size: 1.3em;
             font-weight: bold;
-            animation: checkIn 0.3s ease;
-        }
-
-        @keyframes checkIn {
-            from {
-                transform: scale(0);
-            }
-            to {
-                transform: scale(1);
-            }
         }
 
         .photo-wrapper {
@@ -306,32 +295,18 @@
             backdrop-filter: blur(5px);
         }
 
-        /* Upload Section (for staff) */
-        .upload-section {
+        /* Simple Upload Button */
+        .upload-container {
             background: rgba(255, 255, 255, 0.98);
             border-radius: 15px;
-            padding: 30px;
+            padding: 25px;
             margin-bottom: 25px;
             text-align: center;
-            border: 3px dashed #667eea;
             display: none;
         }
 
-        .upload-section.active {
+        .upload-container.active {
             display: block;
-            animation: slideDown 0.5s ease;
-        }
-
-        .upload-icon {
-            font-size: 3em;
-            color: #667eea;
-            margin-bottom: 15px;
-        }
-
-        .upload-text {
-            color: #666;
-            font-size: 1.1em;
-            margin-bottom: 20px;
         }
 
         /* Cart Preview */
@@ -554,13 +529,11 @@
             </div>
         </div>
 
-        <!-- Upload Section (Hidden by default, for staff view) -->
-        <div class="upload-section" id="uploadSection">
-            <div class="upload-icon">📁</div>
-            <div class="upload-text">Drag & drop memory card folder atau klik untuk browse</div>
+        <!-- Simple Upload Button (for staff view) -->
+        <div class="upload-container" id="uploadContainer">
             <input type="file" id="fileInput" multiple accept="image/*" style="display: none;">
-            <button class="btn btn-primary" onclick="document.getElementById('fileInput').click()">
-                Pilih Foto dari Memory Card
+            <button class="btn btn-primary" style="font-size: 1.2em; padding: 20px 40px;" onclick="document.getElementById('fileInput').click()">
+                📁 Upload Foto dari Memory Card
             </button>
         </div>
 
@@ -607,7 +580,7 @@
             const isStaff = urlParams.get('staff') === 'true';
             
             if (isStaff) {
-                document.getElementById('uploadSection').classList.add('active');
+                document.getElementById('uploadContainer').classList.add('active');
                 setupFileUpload();
             } else {
                 // Load sample photos for customer view
@@ -664,6 +637,7 @@
                 const card = document.createElement('div');
                 card.className = `photo-card ${selectedPhotos.has(photo.id) ? 'selected' : ''}`;
                 card.style.setProperty('--index', index);
+                card.setAttribute('data-photo-id', photo.id);
                 card.onclick = () => togglePhotoSelection(photo.id);
 
                 card.innerHTML = `
@@ -679,8 +653,11 @@
 
         // Toggle photo selection
         function togglePhotoSelection(photoId) {
+            const photoCard = document.querySelector(`[data-photo-id="${photoId}"]`);
+            
             if (selectedPhotos.has(photoId)) {
                 selectedPhotos.delete(photoId);
+                photoCard.classList.remove('selected');
                 showToast('Foto dihapus dari pilihan', 'success');
             } else {
                 if (selectedPhotos.size >= maxSelection) {
@@ -688,10 +665,10 @@
                     return;
                 }
                 selectedPhotos.add(photoId);
+                photoCard.classList.add('selected');
                 showToast('Foto ditambahkan ke pilihan', 'success');
             }
 
-            renderGallery();
             updateStats();
             updateCart();
         }
@@ -738,7 +715,13 @@
         function removeFromCart(photoId) {
             event.stopPropagation();
             selectedPhotos.delete(photoId);
-            renderGallery();
+            
+            // Update the photo card class without re-rendering
+            const photoCard = document.querySelector(`[data-photo-id="${photoId}"]`);
+            if (photoCard) {
+                photoCard.classList.remove('selected');
+            }
+            
             updateStats();
             updateCart();
             showToast('Foto dihapus dari keranjang', 'success');
@@ -752,8 +735,12 @@
             }
             
             if (confirm('Hapus semua pilihan foto?')) {
+                // Remove selected class from all cards without re-rendering
+                document.querySelectorAll('.photo-card.selected').forEach(card => {
+                    card.classList.remove('selected');
+                });
+                
                 selectedPhotos.clear();
-                renderGallery();
                 updateStats();
                 updateCart();
                 showToast('Semua pilihan telah direset', 'success');
@@ -800,8 +787,12 @@
                     
                     // Reset after printing
                     setTimeout(() => {
+                        // Remove selected class from all cards without re-rendering
+                        document.querySelectorAll('.photo-card.selected').forEach(card => {
+                            card.classList.remove('selected');
+                        });
+                        
                         selectedPhotos.clear();
-                        renderGallery();
                         updateStats();
                         updateCart();
                     }, 2000);
@@ -820,32 +811,12 @@
             }, 3000);
         }
 
-        // Setup file upload (for staff)
+        // Setup file upload (for staff) - SIMPLIFIED
         function setupFileUpload() {
             const fileInput = document.getElementById('fileInput');
-            const uploadSection = document.getElementById('uploadSection');
             
-            // Handle file selection
+            // Handle file selection only - no drag & drop
             fileInput.addEventListener('change', handleFileSelect);
-            
-            // Handle drag and drop
-            uploadSection.addEventListener('dragover', (e) => {
-                e.preventDefault();
-                uploadSection.style.background = 'rgba(102, 126, 234, 0.1)';
-            });
-            
-            uploadSection.addEventListener('dragleave', (e) => {
-                e.preventDefault();
-                uploadSection.style.background = 'rgba(255, 255, 255, 0.98)';
-            });
-            
-            uploadSection.addEventListener('drop', (e) => {
-                e.preventDefault();
-                uploadSection.style.background = 'rgba(255, 255, 255, 0.98)';
-                
-                const files = e.dataTransfer.files;
-                handleFiles(files);
-            });
         }
 
         // Handle file selection
@@ -862,30 +833,39 @@
             photos = [];
             selectedPhotos.clear();
             
-            Array.from(files).forEach((file, index) => {
-                if (file.type.startsWith('image/')) {
-                    const reader = new FileReader();
+            let loadedCount = 0;
+            const imageFiles = Array.from(files).filter(file => file.type.startsWith('image/'));
+            
+            if (imageFiles.length === 0) {
+                loading.classList.remove('active');
+                showToast('Tidak ada file gambar yang dipilih', 'error');
+                return;
+            }
+            
+            imageFiles.forEach((file, index) => {
+                const reader = new FileReader();
+                
+                reader.onload = (e) => {
+                    photos.push({
+                        id: `photo_${index + 1}`,
+                        url: e.target.result,
+                        thumbnail: e.target.result,
+                        name: file.name,
+                        selected: false
+                    });
                     
-                    reader.onload = (e) => {
-                        photos.push({
-                            id: `photo_${index + 1}`,
-                            url: e.target.result,
-                            thumbnail: e.target.result,
-                            name: file.name,
-                            selected: false
-                        });
-                        
-                        if (photos.length === files.length) {
-                            renderGallery();
-                            updateStats();
-                            loading.classList.remove('active');
-                            document.getElementById('uploadSection').style.display = 'none';
-                            showToast(`${photos.length} foto berhasil diupload`, 'success');
-                        }
-                    };
+                    loadedCount++;
                     
-                    reader.readAsDataURL(file);
-                }
+                    if (loadedCount === imageFiles.length) {
+                        renderGallery();
+                        updateStats();
+                        loading.classList.remove('active');
+                        document.getElementById('uploadContainer').style.display = 'none';
+                        showToast(`${photos.length} foto berhasil diupload`, 'success');
+                    }
+                };
+                
+                reader.readAsDataURL(file);
             });
         }
     </script>
