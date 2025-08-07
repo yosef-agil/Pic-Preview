@@ -31,18 +31,6 @@
             padding: 25px 30px;
             margin-bottom: 25px;
             box-shadow: 0 20px 40px rgba(0,0,0,0.1);
-            animation: slideDown 0.6s ease;
-        }
-
-        @keyframes slideDown {
-            from {
-                opacity: 0;
-                transform: translateY(-30px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
         }
 
         .header-content {
@@ -200,6 +188,12 @@
             box-shadow: 0 15px 35px rgba(56, 239, 125, 0.4);
         }
 
+        .btn-success:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
         /* Gallery Grid */
         .gallery {
             display: grid;
@@ -216,23 +210,6 @@
             cursor: pointer;
             transition: all 0.3s ease;
             box-shadow: 0 10px 30px rgba(0,0,0,0.1);
-            animation: fadeInUp 0.6s ease forwards;
-            opacity: 0;
-        }
-
-        .photo-card:nth-child(n) {
-            animation-delay: calc(0.05s * var(--index));
-        }
-
-        @keyframes fadeInUp {
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-            from {
-                opacity: 0;
-                transform: translateY(20px);
-            }
         }
 
         .photo-card:hover {
@@ -295,18 +272,55 @@
             backdrop-filter: blur(5px);
         }
 
-        /* Simple Upload Button */
-        .upload-container {
-            background: rgba(255, 255, 255, 0.98);
-            border-radius: 15px;
-            padding: 25px;
-            margin-bottom: 25px;
+        /* Empty State */
+        .empty-state {
             text-align: center;
-            display: none;
+            padding: 60px 20px;
+            color: white;
         }
 
-        .upload-container.active {
-            display: block;
+        .empty-state h2 {
+            font-size: 2em;
+            margin-bottom: 20px;
+        }
+
+        .empty-state p {
+            font-size: 1.2em;
+            margin-bottom: 30px;
+            opacity: 0.9;
+        }
+
+        /* Upload Area */
+        .upload-area {
+            background: rgba(255, 255, 255, 0.98);
+            border-radius: 15px;
+            padding: 40px;
+            margin: 40px auto;
+            max-width: 600px;
+            text-align: center;
+            border: 3px dashed #667eea;
+            transition: all 0.3s ease;
+        }
+
+        .upload-area.dragover {
+            background: rgba(102, 126, 234, 0.1);
+            border-color: #764ba2;
+        }
+
+        .upload-icon {
+            font-size: 4em;
+            margin-bottom: 20px;
+        }
+
+        .upload-title {
+            font-size: 1.5em;
+            color: #333;
+            margin-bottom: 10px;
+        }
+
+        .upload-subtitle {
+            color: #666;
+            margin-bottom: 30px;
         }
 
         /* Cart Preview */
@@ -494,7 +508,7 @@
                 </div>
                 <div class="stats-section">
                     <div class="stat-card">
-                        <span class="stat-number" id="totalPhotos">24</span>
+                        <span class="stat-number" id="totalPhotos">0</span>
                         <span class="stat-label">Total Foto</span>
                     </div>
                     <div class="stat-card">
@@ -509,8 +523,8 @@
             </div>
         </header>
 
-        <!-- Action Bar -->
-        <div class="action-bar">
+        <!-- Action Bar (Hidden initially) -->
+        <div class="action-bar" id="actionBar" style="display: none;">
             <div class="filter-buttons">
                 <button class="filter-btn active" onclick="filterPhotos('all')">Semua Foto</button>
                 <button class="filter-btn" onclick="filterPhotos('selected')">Foto Dipilih</button>
@@ -529,12 +543,17 @@
             </div>
         </div>
 
-        <!-- Simple Upload Button (for staff view) -->
-        <div class="upload-container" id="uploadContainer">
-            <input type="file" id="fileInput" multiple accept="image/*" style="display: none;">
-            <button class="btn btn-primary" style="font-size: 1.2em; padding: 20px 40px;" onclick="document.getElementById('fileInput').click()">
-                📁 Upload Foto dari Memory Card
-            </button>
+        <!-- Upload Area (Always visible when no photos) -->
+        <div id="uploadSection">
+            <div class="upload-area" id="uploadArea">
+                <div class="upload-icon">📷</div>
+                <h2 class="upload-title">Upload Foto dari Memory Card</h2>
+                <p class="upload-subtitle">Drag & drop foto kesini atau klik tombol dibawah</p>
+                <input type="file" id="fileInput" multiple accept="image/*" style="display: none;">
+                <button class="btn btn-primary" style="font-size: 1.1em; padding: 15px 40px;" onclick="document.getElementById('fileInput').click()">
+                    Pilih Foto
+                </button>
+            </div>
         </div>
 
         <!-- Loading -->
@@ -544,8 +563,14 @@
         </div>
 
         <!-- Photo Gallery -->
-        <div class="gallery" id="gallery">
+        <div class="gallery" id="gallery" style="display: none;">
             <!-- Photos will be dynamically loaded here -->
+        </div>
+
+        <!-- Empty State (when no photos) -->
+        <div class="empty-state" id="emptyState" style="display: none;">
+            <h2>Belum ada foto</h2>
+            <p>Upload foto untuk memulai</p>
         </div>
 
         <!-- Cart Preview (Floating) -->
@@ -570,23 +595,13 @@
         // State Management
         let photos = [];
         let selectedPhotos = new Set();
-        let maxSelection = 10; // Maximum photos that can be selected
+        let maxSelection = 20;
         let currentFilter = 'all';
 
         // Initialize on page load
         document.addEventListener('DOMContentLoaded', function() {
-            // Check if this is staff view (could be determined by URL parameter)
-            const urlParams = new URLSearchParams(window.location.search);
-            const isStaff = urlParams.get('staff') === 'true';
+            setupFileUpload();
             
-            if (isStaff) {
-                document.getElementById('uploadContainer').classList.add('active');
-                setupFileUpload();
-            } else {
-                // Load sample photos for customer view
-                loadSamplePhotos();
-            }
-
             // Set current date
             const today = new Date();
             document.getElementById('sessionDate').textContent = today.toLocaleDateString('id-ID', {
@@ -594,30 +609,90 @@
                 month: 'long',
                 year: 'numeric'
             });
+
+            // Generate session ID
+            const sessionId = `SF-${today.getFullYear()}-${String(Math.floor(Math.random() * 1000)).padStart(3, '0')}`;
+            document.getElementById('sessionId').textContent = sessionId;
         });
 
-        // Load sample photos (for demo)
-        function loadSamplePhotos() {
+        // Setup file upload with drag and drop
+        function setupFileUpload() {
+            const fileInput = document.getElementById('fileInput');
+            const uploadArea = document.getElementById('uploadArea');
+            
+            // Handle file selection
+            fileInput.addEventListener('change', handleFileSelect);
+            
+            // Drag and drop events
+            uploadArea.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                uploadArea.classList.add('dragover');
+            });
+            
+            uploadArea.addEventListener('dragleave', (e) => {
+                e.preventDefault();
+                uploadArea.classList.remove('dragover');
+            });
+            
+            uploadArea.addEventListener('drop', (e) => {
+                e.preventDefault();
+                uploadArea.classList.remove('dragover');
+                const files = e.dataTransfer.files;
+                handleFiles(files);
+            });
+        }
+
+        // Handle file selection
+        function handleFileSelect(e) {
+            const files = e.target.files;
+            handleFiles(files);
+        }
+
+        // Handle files
+        function handleFiles(files) {
             const loading = document.getElementById('loading');
             loading.classList.add('active');
-
-            // Simulate loading delay
-            setTimeout(() => {
-                // Generate sample photo data
-                for (let i = 1; i <= 24; i++) {
+            
+            const imageFiles = Array.from(files).filter(file => file.type.startsWith('image/'));
+            
+            if (imageFiles.length === 0) {
+                loading.classList.remove('active');
+                showToast('Tidak ada file gambar yang dipilih', 'error');
+                return;
+            }
+            
+            let loadedCount = 0;
+            
+            imageFiles.forEach((file, index) => {
+                const reader = new FileReader();
+                
+                reader.onload = (e) => {
+                    const photoId = `photo_${Date.now()}_${index}`;
                     photos.push({
-                        id: `photo_${i}`,
-                        url: `https://picsum.photos/400/400?random=${i}`,
-                        thumbnail: `https://picsum.photos/200/200?random=${i}`,
-                        name: `IMG_${String(i).padStart(4, '0')}.jpg`,
+                        id: photoId,
+                        url: e.target.result,
+                        thumbnail: e.target.result,
+                        name: file.name,
                         selected: false
                     });
-                }
-
-                renderGallery();
-                updateStats();
-                loading.classList.remove('active');
-            }, 1500);
+                    
+                    loadedCount++;
+                    
+                    if (loadedCount === imageFiles.length) {
+                        // Hide upload section and show gallery
+                        document.getElementById('uploadSection').style.display = 'none';
+                        document.getElementById('actionBar').style.display = 'flex';
+                        document.getElementById('gallery').style.display = 'grid';
+                        
+                        renderGallery();
+                        updateStats();
+                        loading.classList.remove('active');
+                        showToast(`${photos.length} foto berhasil diupload`, 'success');
+                    }
+                };
+                
+                reader.readAsDataURL(file);
+            });
         }
 
         // Render photo gallery
@@ -633,10 +708,18 @@
                 photosToShow = photos.filter(p => !selectedPhotos.has(p.id));
             }
 
+            if (photosToShow.length === 0 && currentFilter !== 'all') {
+                gallery.innerHTML = `
+                    <div style="grid-column: 1/-1; text-align: center; padding: 40px; color: white;">
+                        <h3>Tidak ada foto ${currentFilter === 'selected' ? 'yang dipilih' : 'yang belum dipilih'}</h3>
+                    </div>
+                `;
+                return;
+            }
+
             photosToShow.forEach((photo, index) => {
                 const card = document.createElement('div');
                 card.className = `photo-card ${selectedPhotos.has(photo.id) ? 'selected' : ''}`;
-                card.style.setProperty('--index', index);
                 card.setAttribute('data-photo-id', photo.id);
                 card.onclick = () => togglePhotoSelection(photo.id);
 
@@ -775,19 +858,17 @@
 
             const selectedPhotosList = Array.from(selectedPhotos).map(id => {
                 return photos.find(p => p.id === id).name;
-            }).join(', ');
+            }).join('\n');
 
             if (confirm(`Cetak ${selectedPhotos.size} foto?\n\nFoto yang dipilih:\n${selectedPhotosList}`)) {
                 showToast('Memproses pencetakan...', 'success');
                 
-                // Here you would send the selected photos to the printer
-                // For demo, we'll just show a success message after delay
                 setTimeout(() => {
                     showToast('Foto sedang dicetak! Silakan tunggu.', 'success');
                     
                     // Reset after printing
                     setTimeout(() => {
-                        // Remove selected class from all cards without re-rendering
+                        // Remove selected class from all cards
                         document.querySelectorAll('.photo-card.selected').forEach(card => {
                             card.classList.remove('selected');
                         });
@@ -811,62 +892,17 @@
             }, 3000);
         }
 
-        // Setup file upload (for staff) - SIMPLIFIED
-        function setupFileUpload() {
-            const fileInput = document.getElementById('fileInput');
-            
-            // Handle file selection only - no drag & drop
-            fileInput.addEventListener('change', handleFileSelect);
-        }
-
-        // Handle file selection
-        function handleFileSelect(e) {
-            const files = e.target.files;
-            handleFiles(files);
-        }
-
-        // Handle files
-        function handleFiles(files) {
-            const loading = document.getElementById('loading');
-            loading.classList.add('active');
-            
-            photos = [];
-            selectedPhotos.clear();
-            
-            let loadedCount = 0;
-            const imageFiles = Array.from(files).filter(file => file.type.startsWith('image/'));
-            
-            if (imageFiles.length === 0) {
-                loading.classList.remove('active');
-                showToast('Tidak ada file gambar yang dipilih', 'error');
-                return;
+        // Add button to upload more photos (appears after initial upload)
+        function addUploadMoreButton() {
+            const actionBar = document.getElementById('actionBar');
+            if (!document.getElementById('uploadMoreBtn')) {
+                const uploadMoreBtn = document.createElement('button');
+                uploadMoreBtn.id = 'uploadMoreBtn';
+                uploadMoreBtn.className = 'btn btn-secondary';
+                uploadMoreBtn.innerHTML = '➕ Tambah Foto';
+                uploadMoreBtn.onclick = () => document.getElementById('fileInput').click();
+                actionBar.querySelector('.action-buttons').prepend(uploadMoreBtn);
             }
-            
-            imageFiles.forEach((file, index) => {
-                const reader = new FileReader();
-                
-                reader.onload = (e) => {
-                    photos.push({
-                        id: `photo_${index + 1}`,
-                        url: e.target.result,
-                        thumbnail: e.target.result,
-                        name: file.name,
-                        selected: false
-                    });
-                    
-                    loadedCount++;
-                    
-                    if (loadedCount === imageFiles.length) {
-                        renderGallery();
-                        updateStats();
-                        loading.classList.remove('active');
-                        document.getElementById('uploadContainer').style.display = 'none';
-                        showToast(`${photos.length} foto berhasil diupload`, 'success');
-                    }
-                };
-                
-                reader.readAsDataURL(file);
-            });
         }
     </script>
 </body>
