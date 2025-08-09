@@ -194,12 +194,31 @@
             transform: none;
         }
 
-        /* Gallery Grid */
+        /* Gallery Grid - Portrait Layout 5 columns */
         .gallery {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            grid-template-columns: repeat(5, 1fr);
             gap: 20px;
             padding: 20px 0;
+        }
+
+        @media (max-width: 1400px) {
+            .gallery {
+                grid-template-columns: repeat(4, 1fr);
+            }
+        }
+
+        @media (max-width: 1024px) {
+            .gallery {
+                grid-template-columns: repeat(3, 1fr);
+            }
+        }
+
+        @media (max-width: 768px) {
+            .gallery {
+                grid-template-columns: repeat(2, 1fr);
+                gap: 15px;
+            }
         }
 
         .photo-card {
@@ -236,11 +255,12 @@
             justify-content: center;
             font-size: 1.3em;
             font-weight: bold;
+            z-index: 10;
         }
 
         .photo-wrapper {
             position: relative;
-            padding-bottom: 100%;
+            padding-bottom: 133.33%; /* 3:4 Portrait Ratio */
             background: #f5f5f5;
             overflow: hidden;
         }
@@ -261,15 +281,20 @@
 
         .photo-number {
             position: absolute;
-            top: 10px;
+            bottom: 10px;
             left: 10px;
+            right: 10px;
             background: rgba(0,0,0,0.7);
             color: white;
-            padding: 6px 14px;
-            border-radius: 20px;
+            padding: 8px 12px;
+            border-radius: 8px;
             font-size: 0.85em;
             font-weight: 600;
             backdrop-filter: blur(5px);
+            text-align: center;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
 
         /* Empty State */
@@ -648,8 +673,8 @@
             handleFiles(files);
         }
 
-        // Handle files
-        function handleFiles(files) {
+        // Optimized file handling - simpler and more reliable
+        async function handleFiles(files) {
             const loading = document.getElementById('loading');
             loading.classList.add('active');
             
@@ -661,38 +686,165 @@
                 return;
             }
             
-            let loadedCount = 0;
+            // Show gallery immediately
+            document.getElementById('uploadSection').style.display = 'none';
+            document.getElementById('actionBar').style.display = 'flex';
+            document.getElementById('gallery').style.display = 'grid';
             
-            imageFiles.forEach((file, index) => {
-                const reader = new FileReader();
+            // Process all files without complex chunking
+            for (let i = 0; i < imageFiles.length; i++) {
+                const file = imageFiles[i];
+                const photoId = `photo_${Date.now()}_${i}_${Math.random().toString(36).substr(2, 9)}`;
                 
-                reader.onload = (e) => {
-                    const photoId = `photo_${Date.now()}_${index}`;
-                    photos.push({
-                        id: photoId,
-                        url: e.target.result,
-                        thumbnail: e.target.result,
-                        name: file.name,
-                        selected: false
-                    });
-                    
-                    loadedCount++;
-                    
-                    if (loadedCount === imageFiles.length) {
-                        // Hide upload section and show gallery
-                        document.getElementById('uploadSection').style.display = 'none';
-                        document.getElementById('actionBar').style.display = 'flex';
-                        document.getElementById('gallery').style.display = 'grid';
-                        
-                        renderGallery();
-                        updateStats();
-                        loading.classList.remove('active');
-                        showToast(`${photos.length} foto berhasil diupload`, 'success');
-                    }
+                // Create photo object with direct blob URL
+                const photo = {
+                    id: photoId,
+                    url: URL.createObjectURL(file),
+                    thumbnail: URL.createObjectURL(file), // Use same URL initially
+                    name: file.name,
+                    file: file,
+                    selected: false
                 };
                 
-                reader.readAsDataURL(file);
+                photos.push(photo);
+                
+                // Render photo immediately
+                renderSinglePhoto(photo);
+                updateStats();
+                
+                // Small delay to keep UI responsive
+                if (i % 10 === 0) {
+                    await new Promise(resolve => setTimeout(resolve, 10));
+                }
+            }
+            
+            loading.classList.remove('active');
+            showToast(`${photos.length} foto berhasil diupload`, 'success');
+            
+            // Create thumbnails in background after all photos are displayed
+            setTimeout(() => {
+                createThumbnailsInBackground();
+            }, 500);
+        }
+
+        // Create thumbnails in background without blocking
+        async function createThumbnailsInBackground() {
+            for (const photo of photos) {
+                if (photo.file && photo.file.size > 500000) { // Only for files > 500KB
+                    await createSimpleThumbnail(photo);
+                    // Small delay between thumbnails
+                    await new Promise(resolve => setTimeout(resolve, 50));
+                }
+            }
+        }
+
+        // Simpler thumbnail creation
+        async function createSimpleThumbnail(photoObj) {
+            return new Promise((resolve) => {
+                const img = new Image();
+                img.onload = function() {
+                    const canvas = document.createElement('canvas');
+                    const ctx = canvas.getContext('2d');
+                    
+                    // Fixed thumbnail size for portrait
+                    const maxWidth = 400;
+                    const maxHeight = 533; // 4:3 ratio
+                    
+                    let width = img.width;
+                    let height = img.height;
+                    
+                    // Scale to fit
+                    if (width > maxWidth || height > maxHeight) {
+                        const scale = Math.min(maxWidth / width, maxHeight / height);
+                        width = Math.floor(width * scale);
+                        height = Math.floor(height * scale);
+                    }
+                    
+                    canvas.width = width;
+                    canvas.height = height;
+                    
+                    // Draw image
+                    ctx.drawImage(img, 0, 0, width, height);
+                    
+                    // Convert to blob
+                    canvas.toBlob((blob) => {
+                        if (blob) {
+                            const newThumbUrl = URL.createObjectURL(blob);
+                            
+                            // Update thumbnail in photo object
+                            const oldThumb = photoObj.thumbnail;
+                            photoObj.thumbnail = newThumbUrl;
+                            
+                            // Update displayed image if it's in viewport
+                            const imgElement = document.querySelector(`[data-photo-id="${photoObj.id}"] img`);
+                            if (imgElement && imgElement.complete) {
+                                imgElement.src = newThumbUrl;
+                            }
+                            
+                            // Clean up old URL if different from main URL
+                            if (oldThumb !== photoObj.url) {
+                                URL.revokeObjectURL(oldThumb);
+                            }
+                        }
+                        resolve();
+                    }, 'image/jpeg', 0.7);
+                };
+                
+                img.onerror = function() {
+                    console.error('Error loading image:', photoObj.name);
+                    resolve();
+                };
+                
+                // Load image from blob URL
+                img.src = photoObj.url;
             });
+        }
+
+        // Simplified render function
+        function renderSinglePhoto(photo) {
+            const gallery = document.getElementById('gallery');
+            
+            // Check if already rendered
+            if (document.querySelector(`[data-photo-id="${photo.id}"]`)) {
+                return;
+            }
+            
+            const card = document.createElement('div');
+            card.className = `photo-card ${selectedPhotos.has(photo.id) ? 'selected' : ''}`;
+            card.setAttribute('data-photo-id', photo.id);
+            
+            const wrapper = document.createElement('div');
+            wrapper.className = 'photo-wrapper';
+            
+            const img = document.createElement('img');
+            img.src = photo.thumbnail;
+            img.alt = photo.name;
+            img.loading = 'lazy';
+            img.decoding = 'async';
+            
+            // Add error handling for images
+            img.onerror = function() {
+                console.error('Failed to load image:', photo.name);
+                // Try to reload with original URL
+                if (this.src !== photo.url) {
+                    this.src = photo.url;
+                } else {
+                    // Show placeholder if both fail
+                    this.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="300" height="400"%3E%3Crect width="300" height="400" fill="%23ccc"/%3E%3Ctext x="50%25" y="50%25" text-anchor="middle" dy=".3em" fill="%23999"%3EError%3C/text%3E%3C/svg%3E';
+                }
+            };
+            
+            wrapper.appendChild(img);
+            
+            const number = document.createElement('div');
+            number.className = 'photo-number';
+            number.textContent = photo.name;
+            wrapper.appendChild(number);
+            
+            card.appendChild(wrapper);
+            card.onclick = () => togglePhotoSelection(photo.id);
+            
+            gallery.appendChild(card);
         }
 
         // Render photo gallery
@@ -717,20 +869,8 @@
                 return;
             }
 
-            photosToShow.forEach((photo, index) => {
-                const card = document.createElement('div');
-                card.className = `photo-card ${selectedPhotos.has(photo.id) ? 'selected' : ''}`;
-                card.setAttribute('data-photo-id', photo.id);
-                card.onclick = () => togglePhotoSelection(photo.id);
-
-                card.innerHTML = `
-                    <div class="photo-wrapper">
-                        <img src="${photo.url}" alt="${photo.name}" loading="lazy">
-                        <div class="photo-number">${photo.name}</div>
-                    </div>
-                `;
-
-                gallery.appendChild(card);
+            photosToShow.forEach((photo) => {
+                renderSinglePhoto(photo);
             });
         }
 
@@ -830,7 +970,7 @@
             }
         }
 
-        // Filter photos
+        // Optimized filter - use CSS instead of re-rendering
         function filterPhotos(filter) {
             currentFilter = filter;
             
@@ -840,7 +980,22 @@
             });
             event.target.classList.add('active');
             
-            renderGallery();
+            // Use CSS to show/hide instead of re-rendering
+            const cards = document.querySelectorAll('.photo-card');
+            
+            if (filter === 'all') {
+                cards.forEach(card => {
+                    card.style.display = '';
+                });
+            } else if (filter === 'selected') {
+                cards.forEach(card => {
+                    card.style.display = card.classList.contains('selected') ? '' : 'none';
+                });
+            } else if (filter === 'unselected') {
+                cards.forEach(card => {
+                    card.style.display = !card.classList.contains('selected') ? '' : 'none';
+                });
+            }
         }
 
         // Toggle cart preview
@@ -892,18 +1047,13 @@
             }, 3000);
         }
 
-        // Add button to upload more photos (appears after initial upload)
-        function addUploadMoreButton() {
-            const actionBar = document.getElementById('actionBar');
-            if (!document.getElementById('uploadMoreBtn')) {
-                const uploadMoreBtn = document.createElement('button');
-                uploadMoreBtn.id = 'uploadMoreBtn';
-                uploadMoreBtn.className = 'btn btn-secondary';
-                uploadMoreBtn.innerHTML = '➕ Tambah Foto';
-                uploadMoreBtn.onclick = () => document.getElementById('fileInput').click();
-                actionBar.querySelector('.action-buttons').prepend(uploadMoreBtn);
-            }
-        }
+        // Clean up blob URLs when page unloads to prevent memory leaks
+        window.addEventListener('beforeunload', () => {
+            photos.forEach(photo => {
+                if (photo.url) URL.revokeObjectURL(photo.url);
+                if (photo.thumbnail) URL.revokeObjectURL(photo.thumbnail);
+            });
+        });
     </script>
 </body>
 </html>
